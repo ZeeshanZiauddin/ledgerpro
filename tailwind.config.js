@@ -1,18 +1,24 @@
-import defaultTheme from 'tailwindcss/defaultTheme';
+import defaultTheme from "tailwindcss/defaultTheme";
 
 /** @type {import('tailwindcss').Config} */
 export default {
     content: [
-        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
-        './storage/framework/views/*.php',
-        './resources/**/*.blade.php',
-        './resources/**/*.js',
-        './resources/**/*.vue',
+        "./vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php",
+        "./storage/framework/views/*.php",
+        "./resources/**/*.blade.php",
+        "./resources/**/*.js",
+        "./resources/**/*.vue",
     ],
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ["Figtree", ...defaultTheme.fontFamily.sans],
+            },
+            spacing: {
+                "input-padding": "4px", // Example custom spacing
+            },
+            fontSize: {
+                "input-lg": "14px", // Custom font size for inputs
             },
         },
     },

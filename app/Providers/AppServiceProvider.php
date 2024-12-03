@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-
+use Filament\Facades\Filament;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -19,6 +19,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Filament::serving(function () {
+            Filament::registerUserMenuItems([
+                'test' => \Filament\Navigation\UserMenuItem::make()
+                    ->label('My Profile')
+                    ->url('/admin/edit-profile')
+                    ->icon('heroicon-m-user-circle'), // Change icon if desired
+            ]);
+        });
     }
 }
