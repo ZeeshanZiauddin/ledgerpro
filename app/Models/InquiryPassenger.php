@@ -10,10 +10,8 @@ class InquiryPassenger extends Model
 
     protected $fillable = [
         'inquiry_id',
-        'from_city_id',
-        'from_country_id',
-        'des_city_id',
-        'des_country_id',
+        'departure_id',
+        'destination_id',
         'dep_date',
         'return_date',
         'adults',
@@ -27,4 +25,22 @@ class InquiryPassenger extends Model
     {
         return $this->belongsTo(Inquiry::class);
     }
+
+    // In InquiryPassenger.php
+    public function departure()
+    {
+        return $this->belongsTo(Destination::class, 'departure_id');
+    }
+
+
+    public function destination()
+    {
+        return $this->belongsTo(Destination::class, 'destination_id');
+    }
+
+    public function airline()
+    {
+        return $this->belongsTo(Airline::class, 'airline_id');
+    }
+
 }

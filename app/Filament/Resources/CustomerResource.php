@@ -18,7 +18,7 @@ class CustomerResource extends Resource
     protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-s-wallet';
-    protected static ?string $navigationGroup = 'Big 2';
+    protected static ?string $navigationGroup = 'Other Resources';
 
     public static function form(Form $form): Form
     {
@@ -26,13 +26,8 @@ class CustomerResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('code')
                     ->disabled()
-                    ->default(fn() => 'S' . str_pad(
-                        optional(Customer::latest('id')->first())->id + 1 ?? 1,
-                        3,
-                        '0',
-                        STR_PAD_LEFT
-                    ))
-                    ->maxLength(255),
+                    ->placeholder('Auto Generated'),
+
 
                 Forms\Components\TextInput::make('name')->required()->maxLength(255),
                 Forms\Components\TextInput::make('email')->email()->nullable(),
@@ -116,7 +111,6 @@ class CustomerResource extends Resource
     {
         return [
             'index' => Pages\ListCustomers::route('/'),
-
         ];
     }
 }

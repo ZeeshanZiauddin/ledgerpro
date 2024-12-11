@@ -6,18 +6,16 @@ use App\Filament\Resources\InquiryResource;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Inquiry extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'inquiry_name',
         'user_id',
-        'date',
-        'year',
-        'owner_firstname',
-        'owner_lastname',
         'status',
         'contact_name',
         'contact_email',
@@ -25,17 +23,23 @@ class Inquiry extends Model
         'contact_home_number',
         'contact_address',
         'price_option',
-        'query_owner',
         'option_date',
         'card_no',
         'pnr',
         'filter_point',
     ];
 
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'text']);
+    }
+
     public function passengers()
     {
         return $this->hasMany(InquiryPassenger::class);
     }
+
 
     public function user()
     {
@@ -57,22 +61,6 @@ class Inquiry extends Model
             }
             if (empty($inquiry->user_id)) {
                 $inquiry->user_id = auth()->id();
-            }
-            if (empty($inquiry->date)) {
-                $inquiry->date = Carbon::now();
-            }
-            if (empty($inquiry->year)) {
-                $inquiry->year = Carbon::now()->format('Y');
-            }
-
-            if (empty($inquiry->owner_firstname)) {
-                $inquiry->owner_firstname = auth()->user()->name;
-            }
-            if (empty($inquiry->owner_lastname)) {
-                $inquiry->owner_lastname = auth()->user()->name;
-            }
-            if (empty($inquiry->query_owner)) {
-                $inquiry->query_owner = auth()->id();
             }
         });
     }

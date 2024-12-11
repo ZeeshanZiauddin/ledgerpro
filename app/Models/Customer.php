@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'code',
@@ -21,22 +23,42 @@ class Customer extends Model
         'status',
     ];
 
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'text']);
+    }
+
     /**
      * Boot method to handle auto-incrementing 'code'.
      */
-    protected static function boot()
+    public static function boot()
     {
         parent::boot();
 
+        // Hook into the creating event
         static::creating(function ($customer) {
-            if (empty($customer->code)) {
-                // Get the latest customer and extract the numeric part of the code
-                $lastCustomer = static::latest('id')->first();
-                $lastCode = $lastCustomer?->code ? intval(substr($lastCustomer->code, 1)) : 0;
-
-                // Increment and format the new code
-                $customer->code = 'S' . str_pad($lastCode + 1, 3, '0', STR_PAD_LEFT);
+            if (!$customer->code) {
+                $customer->code = self::generateCode($customer->name);
             }
         });
+    }
+
+    /**
+     * Generate a unique code based on the customer's name.
+     *
+     * @param string $name
+     * @return string
+     */
+    private static function generateCode(string $name): string
+    {
+        $initial = strtoupper(substr($name, 0, 1)); // Get the first letter of the name
+        $latestCode = self::where('code', 'LIKE', "{$initial}%")
+            ->orderBy('code', 'desc')
+            ->value('code');
+
+        $number = $latestCode ? (int) substr($latestCode, 1) + 1 : 1;
+
+        return $initial . str_pad($number, 3, '0', STR_PAD_LEFT);
     }
 }

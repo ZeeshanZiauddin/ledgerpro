@@ -4,21 +4,27 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CardResource\Pages;
 use App\Models\Card;
+use App\Models\Receipt;
 use Coolsam\FilamentFlatpickr\Forms\Components\Flatpickr;
 use Filament\Forms;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\FontFamily;
 use Filament\Tables;
+use Filament\Tables\Filters\QueryBuilder\Constraints\DateConstraint;
 use Filament\Tables\Table;
 use Filament\Forms\Components\Group;
+use Icetalker\FilamentTableRepeatableEntry\Infolists\Components\TableRepeatableEntry;
 use Icetalker\FilamentTableRepeater\Forms\Components\TableRepeater;
 
 class CardResource extends Resource
 {
     protected static ?string $model = Card::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
     public static function form(Form $form): Form
     {
@@ -38,7 +44,6 @@ class CardResource extends Resource
                             ->default(function (callable $get) {
                                 $userId = $get('user_id');
                                 if ($userId) {
-                                    // Fetch the user by user_id and return the name
                                     $user = \App\Models\User::find($userId);
                                     return $user ? $user->name : null;
                                 }
@@ -120,7 +125,22 @@ class CardResource extends Resource
                         Forms\Components\TextInput::make('margin')
                             ->numeric()
                             ->default(0)
-                            ->disabled(),  // Disabled so the user cannot edit this field
+                            ->readOnly(),
+
+                        Forms\Components\TextInput::make('total_paid')
+                            ->readOnly()
+                            ->reactive()
+                            ->default(0)
+                            ->afterStateHydrated(function ($set, $record) {
+                                if ($record) {
+                                    $set('total_paid', $record->receipts()->sum('total'));
+                                }
+                            }),
+
+
+
+
+
                     ])
                     ->columns(1)
                     ->columnSpan(1),
@@ -185,19 +205,63 @@ class CardResource extends Resource
                         return $supplier ? "Email: {$supplier->email}\nPhone: {$supplier->phone}\nAddress: {$supplier->address}" : 'No supplier details available';
                     }),
 
-                Tables\Columns\TextColumn::make('contact_email')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('sales_price')->sortable(),
-                Tables\Columns\TextColumn::make('net_cost')->sortable(),
-                Tables\Columns\TextColumn::make('tax')->sortable(),
                 Tables\Columns\TextColumn::make('margin')->sortable(),
+                Tables\Columns\BadgeColumn::make('Payment')
+                    ->sortable()
+                    ->html()
+                    ->getStateUsing(function ($record) {
+                        $res = $record->getReceiptsStatus();
+                        return [
+                            'lable' => $res['status']['lable'],
+                        ];
+                    })
+                    ->color(
+                        function ($record) {
+                            $res = $record->getReceiptsStatus('status');
+                            return $res['color'];
+                        }
+                    ),
+
                 Tables\Columns\TextColumn::make('created_at')->since()->sortable(),
             ])
-            ->filters([
-                // Define any filters if necessary
-            ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->slideOver(),
+                Tables\Actions\EditAction::make()
+                    ->color('warning'),
+                Tables\Actions\ActionGroup::make([
+
+                    Tables\Actions\Action::make('create_receipt')
+                        ->label('Create Receipt')
+                        ->icon('heroicon-s-document-plus')
+                        ->url(function ($record) {
+                            return route('filament.admin.resources.receipts.create', ['card_id' => $record->id]);
+                        })
+                        ->color('primary'),
+                    Tables\Actions\Action::make('receipts')
+                        ->label('Show all Receipts')
+                        ->icon('heroicon-s-document-currency-pound')
+                        ->url(function ($record) {
+                            return route('filament.admin.resources.receipts.index', ['card_id' => $record->id]);
+                        })
+                        ->color('success'),
+                    Tables\Actions\DeleteAction::make(),
+                ])
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('user')
+                    ->relationship('user', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('user')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\QueryBuilder::make()
+                    ->constraints([
+                        DateConstraint::make('created_at')
+
+                    ])
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -205,7 +269,99 @@ class CardResource extends Resource
                 ]),
             ]);
     }
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\TextEntry::make('card_name')
+                    ->label('Card Name'),
+                Infolists\Components\TextEntry::make('created_at')
+                    ->since()
+                    ->label('Date'),
+                Infolists\Components\TextEntry::make('user.name')
+                    ->label('Issued by'),
+                Infolists\Components\TextEntry::make('inquiry.name')
+                    ->label('Inquiry No.'),
+                Infolists\Components\TextEntry::make('contact_name'),
+                Infolists\Components\TextEntry::make('contact_email')->copyable(),
+                Infolists\Components\TextEntry::make('contact_mobile')->copyable(),
+                Infolists\Components\TextEntry::make('contact_address')->copyable(),
+                Infolists\Components\TextEntry::make('sales_price'),
+                Infolists\Components\TextEntry::make('net_cost'),
+                Infolists\Components\TextEntry::make('tax'),
+                Infolists\Components\TextEntry::make('payment_status')
+                    ->badge()
+                    ->label('Payment Status')
+                    ->html()
+                    ->getStateUsing(function ($record) {
+                        $res = $record->getReceiptsStatus();
+                        return [
+                            'total' => dollar($res['total']),
+                            'lable' => $res['status']['lable'],
+                        ];
+                    })
+                    ->color(
+                        function ($record): string {
+                            $res = $record->getReceiptsStatus('status');
+                            return $res['color'] ?? 'primary';
+                        }
+                    ),
 
+                TableRepeatableEntry::make('passengers')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('name')
+                            ->label('Passenger name'),
+                        Infolists\Components\TextEntry::make('ticket')
+                            ->label('Ticket No.')
+                            ->fontFamily(FontFamily::Serif)
+                            ->default(
+                                function ($record) {
+                                    return $record->ticket_1 . ' ' . $record->ticket_2;
+                                }
+                            )
+                            ->copyable(),
+                        Infolists\Components\TextEntry::make('issue_date')
+                            ->date()
+                            ->label('Issue date'),
+                        Infolists\Components\TextEntry::make('option_date')
+                            ->date()
+                            ->label('Option Date'),
+                        Infolists\Components\TextEntry::make('pnr')
+                            ->label('PNR')
+                            ->copyable()
+                            ->fontFamily(FontFamily::Mono)
+                    ])
+                    ->columnSpanFull(),
+                TableRepeatableEntry::make('receipts')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('name')
+                            ->fontFamily(FontFamily::Serif)
+                            ->label('#'),
+                        Infolists\Components\TextEntry::make('customer.name')
+                            ->default('N/A')
+                            ->label('Customer'),
+                        Infolists\Components\TextEntry::make('bank_no')
+                            ->default('Not Entered')
+                            ->label('Bank')
+                            ->fontFamily(FontFamily::Serif),
+                        Infolists\Components\TextEntry::make(name: 'totals')
+                            ->badge()
+                            ->label('Amount')
+                            ->html()
+                            ->default(
+                                function ($record) {
+                                    return dollar($record->total);
+                                }
+                            )
+                            ->color('success'),
+                        Infolists\Components\TextEntry::make('user.name')->label('issued_by'),
+                        Infolists\Components\TextEntry::make('created_at')->label('Created At')
+                            ->date(),
+                    ])
+                    ->columnSpanFull(),
+            ])
+            ->columns(4);
+    }
     public static function getRelations(): array
     {
         return [
@@ -213,11 +369,12 @@ class CardResource extends Resource
         ];
     }
 
+
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListCards::route('/'),
-            // You can also define create/edit pages if necessary
             // 'create' => Pages\CreateCard::route('/create'),
             // 'edit' => Pages\EditCard::route('/{record}/edit'),
         ];

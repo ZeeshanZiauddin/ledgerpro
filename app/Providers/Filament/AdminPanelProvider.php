@@ -2,8 +2,12 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\CalenderWidget;
+use Awcodes\Overlook\OverlookPlugin;
+use Awcodes\Overlook\Widgets\OverlookWidget;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use CharrafiMed\GlobalSearchModal\GlobalSearchModalPlugin;
+use EightyNine\Reports\ReportsPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -12,6 +16,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use Hasnayeen\Themes\ThemesPlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -20,7 +25,16 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Joaopaulolndev\FilamentEditProfile\FilamentEditProfilePlugin;
+use Njxqlus\FilamentProgressbar\FilamentProgressbarPlugin;
 use pxlrbt\FilamentSpotlight\SpotlightPlugin;
+use lockscreen\FilamentLockscreen\Lockscreen;
+use lockscreen\FilamentLockscreen\Http\Middleware\Locker;
+use lockscreen\FilamentLockscreen\Http\Middleware\LockerTimer;
+use Rmsramos\Activitylog\ActivitylogPlugin;
+use Tapp\FilamentAuthenticationLog\FilamentAuthenticationLogPlugin;
+use TomatoPHP\FilamentNotes\FilamentNotesPlugin;
+use TomatoPHP\FilamentPWA\FilamentPWAPlugin;
+use Awcodes\FilamentQuickCreate\QuickCreatePlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -42,11 +56,8 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
-                \TomatoPHP\FilamentNotes\Filament\Widgets\NotesWidget::class,
+                OverlookWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -58,13 +69,36 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \Hasnayeen\Themes\Http\Middleware\SetTheme::class
+                \Hasnayeen\Themes\Http\Middleware\SetTheme::class,
+                LockerTimer::class,
             ])
             ->plugins([
-                GlobalSearchModalPlugin::make()->closeByEscaping(enabled: false)->closeByClickingAway(enabled: false),
                 FilamentShieldPlugin::make(),
+                FilamentPWAPlugin::make(),
+                FilamentProgressbarPlugin::make()->color('#29b'),
+                new Lockscreen(),
+                FilamentAuthenticationLogPlugin::make(),
                 SpotlightPlugin::make(),
-                \TomatoPHP\FilamentNotes\FilamentNotesPlugin::make()
+                QuickCreatePlugin::make()
+                    ->excludes([
+                        \App\Filament\Resources\UserResource::class,
+                        \App\Filament\Resources\RoleResource::class,
+                    ])
+                    ->keyBindings(['command+shift+a', 'ctrl+m']),
+                ActivitylogPlugin::make(),
+                ThemesPlugin::make(),
+                ReportsPlugin::make(),
+                OverlookPlugin::make()
+                    ->sort(2)
+                    ->columns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'md' => 3,
+                        'lg' => 4,
+                        'xl' => 5,
+                        '2xl' => null,
+                    ]),
+                FilamentNotesPlugin::make()
                     ->useStatus()
                     ->useGroups()->useUserAccess(),
                 FilamentEditProfilePlugin::make()
@@ -78,11 +112,13 @@ class AdminPanelProvider extends PanelProvider
                         directory: 'avatars', // image will be stored in 'storage/app/public/avatars
                         rules: 'mimes:jpeg,png|max:1024'
                     ),
-                \Hasnayeen\Themes\ThemesPlugin::make(),
-                \TomatoPHP\FilamentPWA\FilamentPWAPlugin::make()
+
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+                Locker::class,
+            ])
+            ->sidebarCollapsibleOnDesktop()
+        ;
     }
 }
